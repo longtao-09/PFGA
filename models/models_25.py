@@ -30,12 +30,7 @@ class GCN(torch.nn.Module):
         self.use_bns = use_bns
         self.task = task
         # 0表示无个性化网络，1表示节点个性化，2表示客户端个性化
-        if args.acg_model == 0:
-            self.cons = GCNLayer(input_dim=n_feat, output_dim=n_dims, activation=F.relu, dropout=dropout)
-        # elif args.acg_model == 1:
-        #     self.cons = GCNLayer0(input_dim=n_feat, output_dim=n_dims, activation=F.relu, dropout=dropout)
-        # elif args.acg_model == 2:
-        #     self.cons = GCNLayer1(input_dim=n_feat, output_dim=n_dims, activation=F.relu, dropout=dropout)
+        self.cons = GCNLayer(input_dim=n_feat, output_dim=n_dims, activation=F.relu, dropout=dropout)
         self.conv_pos = VGAE(input_dim=n_feat, output_dim=emb, dim_z=n_dims, dropout=dropout, gae=self.gae,
                              model=args.acg_model)
         self.bns = torch.nn.BatchNorm1d(n_dims)
@@ -398,105 +393,3 @@ class GCNLayer(nn.Module):
                 x = self.activation(x)
         return x
 
-
-# 节点个性化
-class GCNLayer0(nn.Module):
-    """ one layer of GCN """
-
-    def __init__(self, input_dim, output_dim, activation, dropout, bias=True, ep=False):
-        super(GCNLayer0, self).__init__()
-        self.input_dim = input_dim
-        self.output_dim = output_dim
-        self.c = 8
-        self.W1 = nn.Parameter(torch.FloatTensor(input_dim, output_dim // self.c))  # c*d
-        self.W2 = nn.Parameter(torch.FloatTensor(output_dim // self.c, input_dim, output_dim))  # d*c
-        self.activation = activation
-        self.ep = ep
-        if bias:
-            self.b = nn.Parameter(torch.FloatTensor(output_dim // self.c, output_dim))
-        else:
-            self.b = None
-        if dropout:
-            self.dropout = nn.Dropout(p=dropout)
-        else:
-            self.dropout = 0
-        self.init_params()
-
-    def init_params(self):
-        """ Initialize weights with xavier uniform and biases with all zeros """
-        for param in self.parameters():
-            if len(param.size()) == 2:
-                nn.init.xavier_uniform_(param)
-            else:
-                nn.init.constant_(param, 0.0)
-
-    def forward(self, h, adj, model=0):  # model=1 表示正常模式，model=0表示生成图
-        if self.dropout:
-            h = self.dropout(h)
-        node = h @ self.W1
-        # node = node.mean(dim=0)
-        # w = node @ self.W2
-        w = torch.einsum('nd,dcf->ncf', node, self.W2)
-        x = torch.einsum('nc,ncf->nf', h, w)
-        # x = x @ self.W2
-        # x = h @ w
-        x = adj @ x
-        if self.b is not None:
-            b = torch.matmul(node, self.b)
-            x = x + b
-        if self.activation:
-            x = self.activation(x)
-        if self.ep:
-            x = x @ x.T
-        return x
-
-
-# 客户端个性化
-class GCNLayer1(nn.Module):
-    """ one layer of GCN """
-
-    def __init__(self, input_dim, output_dim, activation, dropout, bias=True, ep=False):
-        super(GCNLayer1, self).__init__()
-        self.input_dim = input_dim
-        self.output_dim = output_dim
-        self.c = 8
-        self.W1 = nn.Parameter(torch.FloatTensor(input_dim, output_dim // self.c))  # c*d
-        self.W2 = nn.Parameter(torch.FloatTensor(output_dim // self.c, input_dim, output_dim))  # d*c
-        self.activation = activation
-        self.ep = ep
-        if bias:
-            self.b = nn.Parameter(torch.FloatTensor(output_dim // self.c, output_dim))
-        else:
-            self.b = None
-        if dropout:
-            self.dropout = nn.Dropout(p=dropout)
-        else:
-            self.dropout = 0
-        self.init_params()
-
-    def init_params(self):
-        """ Initialize weights with xavier uniform and biases with all zeros """
-        for param in self.parameters():
-            if len(param.size()) == 2:
-                nn.init.xavier_uniform_(param)
-            else:
-                nn.init.constant_(param, 0.0)
-
-    def forward(self, h, adj, model=0):  # model=1 表示正常模式，model=0表示生成图
-        if self.dropout:
-            h = self.dropout(h)
-        node = h @ self.W1
-        node = node.mean(dim=0)
-        # w = node @ self.W2
-        w = torch.einsum('d,dcf->cf', node, self.W2)
-        # x = x @ self.W2
-        x = h @ w
-        x = adj @ x
-        if self.b is not None:
-            b = torch.matmul(node, self.b)
-            x = x + b
-        if self.activation:
-            x = self.activation(x)
-        if self.ep:
-            x = x @ x.T
-        return x
