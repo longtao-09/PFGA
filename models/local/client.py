@@ -54,7 +54,7 @@ class Client(ClientModule):
 
     def on_receive_message(self, curr_rnd):
         self.curr_rnd = curr_rnd
-        self.update(self.sd['global'])
+#        self.update(self.sd['global'])
 
     def update(self, update):
         set_state_dict(self.model, update['model'], self.gpu_id, skip_stat=True)
