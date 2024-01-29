@@ -2,7 +2,8 @@ import time
 import numpy as np
 
 from misc.utils import *
-from models.nets import *
+# from models.nets import *
+from models.models_25 import *
 from modules.federated import ServerModule
 
 
