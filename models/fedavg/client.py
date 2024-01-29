@@ -4,8 +4,8 @@ import torch.nn.functional as F
 
 # from misc.plot import plot_visual
 from misc.utils import *
-from models.nets import *
-# from models.models_25 import *
+# from models.nets import *
+from models.models_25 import *
 from modules.federated import ClientModule
 
 
@@ -37,6 +37,7 @@ class Client(ClientModule):
             'optimizer': self.optimizer.state_dict(),
             'model': get_state_dict(self.model),
             'log': self.log,
+            'adj': self.model.adj,
         })
 
     def load_state(self):
@@ -49,17 +50,19 @@ class Client(ClientModule):
         set_state_dict(self.model, loaded['model'], self.gpu_id)
         self.optimizer.load_state_dict(loaded['optimizer'])
         self.log = loaded['log']
+        self.model.adj = loaded['adj']
 
     def update_state(self, client_state, client_id):
         client_state[client_id] = {
             'optimizer': self.optimizer.state_dict(),
             'model': get_state_dict(self.model),
             'log': self.log,
+            'adj': self.model.adj,
         }
 
     def on_receive_message(self, curr_rnd):
         self.curr_rnd = curr_rnd
-        # self.update(self.sd['global'])
+        self.update(self.sd['global'])
 
     def update(self, update):
         set_state_dict(self.model, update['model'], self.gpu_id, skip_stat=True)
