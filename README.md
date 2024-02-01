@@ -27,7 +27,7 @@ python main.py --gpu 0 --n-workers 1 --model fedpfgaa --dataset Cora --mode disj
 ```
 The following command line runs a parameter search experiment for PFGA-A on the Cora dataset.
 ```sh
-python optuna_main.py --gpu 0 --n-workers 1 --model fedpfgaa --dataset Cora --mode disjoint --frac 1.0 --n-rnds 200 --n-eps 1 --n-clients 5 --seed 1024 --acg_model 0 --print 1 
+python optuna_main.py --gpu 0 --n-workers 1 --model fedpfgaa --dataset Cora --mode disjoint --frac 1.0 --n-rnds 200 --n-eps 1 --n-clients 5 --seed 1024 --acg_model 0 --print 0
 ```
 
 
@@ -42,5 +42,5 @@ python main.py --gpu 0 --n-workers 1 --model fedpfgaa --dataset Cora --mode over
 ```
 The following command line runs a parameter search experiment for PFGA-A on the Cora dataset.
 ```sh
-python optuna_main.py --gpu 0 --n-workers 1 --model fedpfgaa --dataset Cora --mode overlapping --frac 1.0 --n-rnds 200 --n-eps 1 --n-clients 10 --seed 1024 --acg_model 0 --print 1 
+python optuna_main.py --gpu 0 --n-workers 1 --model fedpfgaa --dataset Cora --mode overlapping --frac 1.0 --n-rnds 200 --n-eps 1 --n-clients 10 --seed 1024 --acg_model 0 --print 0 
 ```
