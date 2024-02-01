@@ -18,33 +18,31 @@ def main(args):
     if args.model == 'fedavg':
         from models.fedavg.server import Server
         from models.fedavg.client import Client
-    elif args.model == 'fedpub':
-        from models.fedpub.server import Server
-        from models.fedpub.client import Client
-    elif args.model == 'fednapl':
-        from models.fednapl.server import Server
-        from models.fednapl.client import Client
-    elif args.model == 'fedacg':
-        from models.fedacg.server import Server
-        from models.fedacg.client import Client
-        # args.alpha, args.beta, args.gamma = 0.7772, 1.8951, 2.058
-    elif args.model == 'fedpfl':
-        from models.fedpfl.server import Server
-        from models.fedpfl.client import Client
-    elif args.model == 'fedprox':
-        from models.fedprox.server import Server
-        from models.fedprox.client import Client
-    elif args.model == 'fedpacg':
-        from models.fedpacg.server import Server
-        from models.fedpacg.client import Client
-    elif args.model == 'fedcacg':
-        from models.fedcacg.server import Server
-        from models.fedcacg.client import Client
-        args.alpha, args.beta, args.gamma = 0.7772, 1.8951, 2.058
-    elif args.model == 'fedmacg':
-        from models.fedmacg.server import Server
-        from models.fedmacg.client import Client
-        args.alpha, args.beta, args.gamma = 0.7772, 1.8951, 2.058
+    # elif args.model == 'fedpub':
+    #     from models.fedpub.server import Server
+    #     from models.fedpub.client import Client
+    # elif args.model == 'fednapl':
+    #     from models.fednapl.server import Server
+    #     from models.fednapl.client import Client
+
+    # elif args.model == 'fedpfl':
+    #     from models.fedpfl.server import Server
+    #     from models.fedpfl.client import Client
+    # elif args.model == 'fedprox':
+    #     from models.fedprox.server import Server
+    #     from models.fedprox.client import Client
+    # elif args.model == 'fedpacg':
+    #     from models.fedpacg.server import Server
+    #     from models.fedpacg.client import Client
+    elif args.model == 'fedpfgaa':
+        from models.fedpfgaa.server import Server
+        from models.fedpfgaa.client import Client
+    elif args.model == 'fedpfgac':
+        from models.fedpfgac.server import Server
+        from models.fedpfgac.client import Client
+    elif args.model == 'fedpfgam':
+        from models.fedpfgam.server import Server
+        from models.fedpfgam.client import Client
     else:
         print('incorrect model was given: {}'.format(args.model))
         os._exit(0)
