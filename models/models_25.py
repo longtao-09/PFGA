@@ -22,14 +22,13 @@ class GCN(torch.nn.Module):
 
     def __init__(self,
                  n_feat=10, n_dims=64, n_clss=10, args=None, dropout=0.5, emb=32,
-                 gae=True,  # 默认真
+                 gae=True,
                  use_bns=True,
                  task=0):
         super(GCN, self).__init__()
         self.gae = gae
         self.use_bns = use_bns
         self.task = task
-        # 0表示无个性化网络，1表示节点个性化，2表示客户端个性化
         self.cons = GCNLayer(input_dim=n_feat, output_dim=n_dims, activation=F.relu, dropout=dropout)
         self.conv_pos = VGAE(input_dim=n_feat, output_dim=emb, dim_z=n_dims, dropout=dropout, gae=self.gae,
                              model=args.acg_model)
