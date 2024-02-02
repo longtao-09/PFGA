@@ -78,7 +78,8 @@ class Server(ServerModule):
             model_parameters.append(temp_parameters)
         # st = time.time()
         # 将模型参数转换为GPU上的tensor
-        models_gpu = [torch.Tensor(model).view(1, -1).cuda(self.gpu_id) for model in model_parameters]
+        models_gpu = [torch.Tensor(model).view(1, -1).to(dtype=torch.float64).cuda(self.gpu_id) for model in
+                      model_parameters]
         # 计算模型中心
         center = torch.stack(models_gpu).mean(dim=0).view(1, -1).cuda(self.gpu_id)
         # 计算每个模型到中心的余弦相似度
@@ -88,15 +89,12 @@ class Server(ServerModule):
         # threshold = np.median(similarities)
         # self.cluster_labels = np.where(similarities < threshold, 0, 1)
         similarities = np.array(similarities).reshape(-1, 1)
+        similarities[np.isnan(similarities)] = 0.99
         kmeans = KMeans(n_clusters=self.center, max_iter=20)
         kmeans.fit(similarities)
 
         # 获取每个模型的所属簇标签
         self.cluster_labels = kmeans.labels_
-        # self.logger.print(f'clients cluster have been done!!!! ({time.time() - st:.2f}s)')
-        # kmeans = KMeans_fun(k=2, max_iters=100)
-        # # 获取每个模型的所属簇标签
-        # _, self.cluster_labels = kmeans(model_parameters)
         # end_time = datetime.now()
         # print(f'Kmeans:{end_time - start_time}!!!!!!!!!!!!!!!!!!!!')
 

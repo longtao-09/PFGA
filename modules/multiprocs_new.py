@@ -5,7 +5,7 @@ import atexit
 import numpy as np
 from misc.utils import *
 from models.nets import *
-from models.napl import *
+# from models.napl import *
 
 
 class ParentProcess:
