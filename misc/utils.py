@@ -87,6 +87,28 @@ def set_state_dict(model, state_dict, gpu_id, skip_stat=False, skip_mask=False, 
     model.load_state_dict(state_dict)
 
 
+def set_state_dict_ep(model, state_dict, gpu_id, skip_stat=False, skip_mask=False, Local=False):
+    state_dict = convert_np_to_tensor(state_dict, gpu_id, skip_stat=skip_stat, skip_mask=skip_mask,
+                                      model=model.state_dict())
+    # state_mask = ['conv_a.W1', 'conv_a.W2', 'conv_a.b']
+
+    if Local:
+        state_mask = ['cons.W', 'cons.b', 'ep.W', 'ep.b']
+        # state_mask = ['cons.W1', 'cons.W2', 'cons.b', 'cls.W', 'cls.b']
+        # # state_mask = ['conv_last.W', 'conv_last.b']
+        for mask in state_mask:
+            state_dict[mask] = model.state_dict()[mask]
+    # if Local:
+    #     all_mask = [k for k, _ in state_dict.items()]
+    #     state_mask = ['cons.W', 'cons.b', 'cls.W', 'cls.b']
+    #     # state_mask = ['cons.W1', 'cons.W2', 'cons.b', 'cls.W', 'cls.b']
+    #     # # state_mask = ['conv_last.W', 'conv_last.b']
+    #     for mask in all_mask:
+    #         if mask not in state_mask:
+    #             state_dict[mask] = model.state_dict()[mask]
+    model.load_state_dict(state_dict)
+
+
 def convert_tensor_to_np(state_dict):
     return OrderedDict([(k, v.clone().detach().cpu().numpy()) for k, v in state_dict.items()])
 
@@ -121,7 +143,8 @@ def get_ep_data(data, args):
     # new_label = None
     # a = data.edge_index
     if args.task:
-        train_rate = 0.85
+        # train_rate = 0.85
+        train_rate = 0.5
         val_ratio = (1 - train_rate) / 3
         test_ratio = (1 - train_rate) / 3 * 2
         train_edge = train_test_split_edges(copy.copy(data), val_ratio, test_ratio)
