@@ -12,8 +12,10 @@ class Client(ClientModule):
 
     def __init__(self, args, w_id, g_id, sd):
         super(Client, self).__init__(args, w_id, g_id, sd)
-        self.rnd_local_val_acc, self.rnd_local_test_acc = None, None
-        self.model = GCN(self.args.n_feat, self.args.n_dims, self.args.n_clss, self.args).cuda(g_id)
+        self.rnd_local_val_acc, self.rnd_local_test_acc, self.rnd_local_val_ap, self.rnd_local_test_ap = None, None, None, None
+        # TODO
+        self.model = GCN(self.args.n_feat, self.args.n_dims, self.args.n_clss, self.args, task=self.args.task).cuda(
+            g_id)
         self.parameters = list(self.model.parameters())
 
     def init_state(self):
@@ -53,7 +55,12 @@ class Client(ClientModule):
         self.log = loaded['log']
 
     def load_state1(self, loaded):
-        set_state_dict(self.model, loaded['model'], self.gpu_id, Local=True)
+        # TODO
+        # set_state_dict(self.model, loaded['model'], self.gpu_id, Local=True)
+        if self.args.task == 0:
+            set_state_dict(self.model, loaded['model'], self.gpu_id, skip_stat=True, Local=True)
+        else:
+            set_state_dict_ep(self.model, loaded['model'], self.gpu_id, skip_stat=True, Local=True)
         self.optimizer.load_state_dict(loaded['optimizer'])
         self.log = loaded['log']
         self.model.adj = loaded['adj']
@@ -99,7 +106,11 @@ class Client(ClientModule):
         self.update(self.sd['global'])
 
     def update(self, update):
-        set_state_dict(self.model, update['model'], self.gpu_id, skip_stat=True, Local=True)
+        # TODO
+        if self.args.task == 0:
+            set_state_dict(self.model, update['model'], self.gpu_id, skip_stat=True, Local=True)
+        else:
+            set_state_dict_ep(self.model, update['model'], self.gpu_id, skip_stat=True, Local=True)
 
     def on_round_begin(self, client_id):
         self.train()
@@ -170,6 +181,7 @@ class Client(ClientModule):
         # loss_cl = 0
         # loss_cl = torch.nn.functional.triplet_margin_loss(summary, summary_pos, summary_neg, reduction='mean')
         loss = beta * ((1 - alpha) * loss_cl + alpha * loss_co) + loss_s * gamma
+        # loss = (1 - alpha) * (loss_cl + loss_s) + alpha * loss_co
 
         return loss
 
@@ -177,28 +189,49 @@ class Client(ClientModule):
         # cora 0.28,5,1.4
         alpha, beta, gamma = self.args.alpha, self.args.beta, self.args.gamma
         for ep in range(self.args.n_eps):
-            st = time.time()
-            self.model.train()
-            # for _, batch in enumerate(self.loader.pa_loader):
-            batch = self.loader.partition[0]
-            self.optimizer.zero_grad()
-            from torch_geometric.utils import degree
-            degree_count = degree(batch.edge_index[0], batch.num_nodes).cpu().detach().numpy()
-            batch = batch.cuda(self.gpu_id)
-            flag = np.median(degree_count)
-            new_label = np.where(degree_count < flag, 0, 1)
-            rep_loss = self.train_rep(self.model, batch, 2, alpha=alpha, beta=beta, gamma=gamma,
-                                      new_label=new_label)
-            y_hat = self.model(batch)
-            # y_hat = self.model(batch)
-            # print("---------", y_hat[batch.train_mask].shape, batch.y[batch.train_mask].shape, "---------")
-            train_lss = F.cross_entropy(y_hat[batch.train_mask], batch.y[batch.train_mask]) + rep_loss
-            train_lss.backward()
-            self.optimizer.step()
-            val_local_acc, val_local_lss = self.validate(mode='valid')
-            test_local_acc, test_local_lss = self.validate(mode='test')
-            # if self.curr_rnd == 199 and self.sd['acc'] >= 0.826:
-            #     plot_visual(batch, plot_feature, f'plot_{self.client_id}_acg.pdf')
+            if self.args.task == 0:
+                st = time.time()
+                self.model.train()
+                # for _, batch in enumerate(self.loader.pa_loader):
+                batch = self.loader.partition[0]
+                self.optimizer.zero_grad()
+                from torch_geometric.utils import degree
+                degree_count = degree(batch.edge_index[0], batch.num_nodes).cpu().detach().numpy()
+                batch = batch.cuda(self.gpu_id)
+                flag = np.median(degree_count)
+                new_label = np.where(degree_count < flag, 0, 1)
+                rep_loss = self.train_rep(self.model, batch, 2, alpha=alpha, beta=beta, gamma=gamma,
+                                          new_label=new_label)
+                y_hat = self.model(batch)
+                # y_hat = self.model(batch)
+                # print("---------", y_hat[batch.train_mask].shape, batch.y[batch.train_mask].shape, "---------")
+                train_lss = F.cross_entropy(y_hat[batch.train_mask], batch.y[batch.train_mask]) + rep_loss
+                train_lss.backward()
+                self.optimizer.step()
+                val_local_acc, val_local_lss = self.validate(mode='valid')
+                test_local_acc, test_local_lss = self.validate(mode='test')
+                # if self.curr_rnd == 199 and self.sd['acc'] >= 0.826:
+                #     plot_visual(batch, plot_feature, f'plot_{self.client_id}_acg.pdf')
+            else:
+                st = time.time()
+                self.model.train()
+                # for _, batch in enumerate(self.loader.pa_loader):
+                batch = self.loader.partition[0]
+                new_label, adj_m, norm_w, pos_weight, train_edge = get_ep_data(batch.cpu(), self.args)
+                adj_m, pos_weight, train_edge = [x.cuda() for x in [adj_m, pos_weight, train_edge]]
+                self.optimizer.zero_grad()
+                batch = batch.cuda(self.gpu_id)
+                adj = train_edge.train_pos_edge_index
+                rep_loss = self.train_rep(self.model, batch, 2, alpha=alpha, beta=beta, gamma=gamma,
+                                          new_label=new_label, train_edge=train_edge)
+                adj_logit = self.model(batch, edge=adj)
+                train_lss = norm_w * F.binary_cross_entropy_with_logits(adj_logit.view(-1), adj_m.view(-1),
+                                                                        pos_weight=pos_weight) + rep_loss
+
+                train_lss.backward()
+                self.optimizer.step()
+                val_local_acc, val_local_lss, test_local_acc, test_local_lss = self.test_ep(self.model, batch,
+                                                                                            train_edge)
             if self.args.print:
                 self.logger.print(
                     f'rnd:{self.curr_rnd + 1}, ep:{ep + 1}, '
@@ -216,6 +249,7 @@ class Client(ClientModule):
         self.log['rnd_local_test_lss'].append(test_local_lss)
         self.rnd_local_val_acc = val_local_acc
         self.rnd_local_test_acc = test_local_acc
+        self.rnd_local_val_ap, self.rnd_local_test_ap = val_local_lss, test_local_lss
         self.save_log()
 
     def transfer_to_server(self):
@@ -223,5 +257,7 @@ class Client(ClientModule):
             'model': get_state_dict(self.model),
             'train_size': self.loader.train_size,
             'rnd_local_val_acc': self.rnd_local_val_acc,
-            'rnd_local_test_acc': self.rnd_local_test_acc
+            'rnd_local_test_acc': self.rnd_local_test_acc,
+            'rnd_local_val_lss': self.rnd_local_val_ap,
+            'rnd_local_test_lss': self.rnd_local_test_ap
         }

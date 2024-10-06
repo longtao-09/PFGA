@@ -9,8 +9,10 @@ from modules.federated import ServerModule
 class Server(ServerModule):
     def __init__(self, args, sd, gpu_server):
         super(Server, self).__init__(args, sd, gpu_server)
-        self.model = GCN(self.args.n_feat, self.args.n_dims, self.args.n_clss, self.args).cuda(self.gpu_id)
-        self.best_val_acc, self.last_test_acc = 0, 0
+        # TODO
+        self.model = GCN(self.args.n_feat, self.args.n_dims, self.args.n_clss, self.args, task=self.args.task).cuda(
+            self.gpu_id)
+        self.best_val_acc, self.last_test_acc, self.best_val_ap, self.last_test_ap = 0, 0, 0, 0
 
     def on_round_begin(self, curr_rnd):
         self.round_begin = time.time()
@@ -20,26 +22,49 @@ class Server(ServerModule):
     def calculate_average_test_accuracy(self, updated):
         total_test_acc = 0.0
         total_val_acc = 0.0
+        total_test_ap = 0.0
+        total_val_ap = 0.0
         num_clients = len(updated)
         for c_id in updated:
             client_val_acc, client_test_acc = self.sd[c_id]['rnd_local_val_acc'], self.sd[c_id]['rnd_local_test_acc']
+            client_val_ap, client_test_ap = self.sd[c_id]['rnd_local_val_lss'], self.sd[c_id]['rnd_local_test_lss']
             total_test_acc += client_test_acc
             total_val_acc += client_val_acc
+            total_test_ap += client_test_ap
+            total_val_ap += client_val_ap
         average_val_acc = total_val_acc / num_clients
         average_test_acc = total_test_acc / num_clients
+        average_test_ap = total_test_ap / num_clients
+        average_val_ap = total_val_ap / num_clients
         if self.best_val_acc <= average_val_acc:
             self.best_val_acc = average_val_acc
             self.last_test_acc = average_test_acc
+            self.best_val_ap = average_val_ap
+            self.last_test_ap = average_test_ap
 
     def on_round_complete(self, updated):
         self.calculate_average_test_accuracy(updated)
 
         self.sd['acc'] = self.last_test_acc
         if self.args.print:
-            self.logger.print(f'Avg val acc:{self.best_val_acc * 100:.1f}%,Avg test acc: {self.last_test_acc * 100:.1f}%')
-        if self.curr_rnd+1 == self.args.n_rnds:
-            self.logger.print(
-                f'Avg val acc:{self.best_val_acc * 100:.1f}%,Avg test acc: {self.last_test_acc * 100:.1f}%')
+            if self.args.task:
+                self.logger.print(
+                    f'Avg val auc = {self.best_val_acc * 100:.1f}%, Avg val ap = {self.best_val_ap * 100:.1f}% '
+                    f'Avg test auc = {self.last_test_acc * 100:.1f}%, Avg test ap = {self.last_test_ap * 100:.1f}%')
+            else:
+                self.logger.print(
+                    f'Avg val acc:{self.best_val_acc * 100:.1f}%,Avg test acc: {self.last_test_acc * 100:.1f}%')
+        # if self.curr_rnd + 1 in [1, 5, 10, 20, 50, 100]:
+        #     self.logger.print(
+        #         f'epoch:{self.curr_rnd + 1},Avg test acc: {self.last_test_acc * 100:.1f}%')
+        if self.curr_rnd + 1 == self.args.n_rnds:
+            if self.args.task:
+                self.logger.print(
+                    f'Avg val auc = {self.best_val_acc * 100:.1f}%, Avg val ap = {self.best_val_ap * 100:.1f}% '
+                    f'Avg test auc = {self.last_test_acc * 100:.1f}%, Avg test ap = {self.last_test_ap * 100:.1f}%')
+            else:
+                self.logger.print(
+                    f'Avg val acc:{self.best_val_acc * 100:.1f}%,Avg test acc: {self.last_test_acc * 100:.1f}%')
         # self.logger.print(f'Avg val acc:{self.best_val_acc * 100:.1f}%,Avg test acc: {self.last_test_acc * 100:.1f}%')
         self.update(updated)
         self.save_state()
